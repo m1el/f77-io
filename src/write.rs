@@ -33,13 +33,14 @@ pub trait FortranFormat {
 pub enum WriteErr {
     IoErr(::std::io::Error),
     DataWithoutFormat,
-    InvalidFormat,
+    UnexpectedQInRead,
     InvalidState,
 }
 
 macro_rules! ioerr {
     ($x: expr) => { $x.map_err(|x| WriteErr::IoErr(x)) }
 }
+
 macro_rules! tryio {
     ($x: expr) => { try!(ioerr!($x)) }
 }
@@ -82,7 +83,7 @@ impl<'a> FortranIterWriter<'a> {
             &Hex(_, _) => true,
             &Real(_, _, _, _) => true,
             &Group(_) | &Repeat(_, _) => unreachable!(),
-            &RemainingChars => return Err(WriteErr::InvalidFormat),
+            &RemainingChars => return Err(WriteErr::UnexpectedQInRead),
         };
         Ok(rv)
     }
@@ -146,8 +147,8 @@ impl<'a> FortranIterWriter<'a> {
             return Err(WriteErr::InvalidState);
         }
         let n = match self.iter.next() {
-            Some(n) => n,
-            None => return Err(WriteErr::InvalidState),
+            Some(n) if try!(Self::requires_data(n)) => n,
+            _ => return Err(WriteErr::InvalidState),
         };
         self.has_something = true;
         self.consumed_data = true;
