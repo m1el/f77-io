@@ -8,9 +8,6 @@ pub struct WriterOpts {
     suppress_newline: bool,
     scale: isize,
     radix: usize,
-    wants_data: bool,
-    consumed_data: bool,
-    has_something: bool,
 }
 
 #[cfg(never)]
@@ -23,10 +20,28 @@ pub struct FortranIterWriter<'a> {
     iter: Peekable<FormatEvalIter<'a>>,
     node: &'a FormatNode,
     opts: WriterOpts,
+    wants_data: bool,
+    consumed_data: bool,
+    has_something: bool,
 }
 
 pub trait FortranFormat {
     fn f77_format(&self, fmt: &FormatNode, opts: &WriterOpts) -> String;
+}
+
+#[derive(Debug)]
+pub enum WriteErr {
+    IoErr(::std::io::Error),
+    DataWithoutFormat,
+    InvalidFormat,
+    InvalidState,
+}
+
+macro_rules! ioerr {
+    ($x: expr) => { $x.map_err(|x| WriteErr::IoErr(x)) }
+}
+macro_rules! tryio {
+    ($x: expr) => { try!(ioerr!($x)) }
 }
 
 impl<'a> FortranIterWriter<'a> {
@@ -37,16 +52,16 @@ impl<'a> FortranIterWriter<'a> {
                 suppress_newline: false,
                 scale: 0,
                 radix: 10,
-                consumed_data: false,
-                wants_data: true,
-                has_something: false,
             },
+            consumed_data: false,
+            wants_data: true,
+            has_something: false,
             node: fmt,
             iter: fmt.into_iter().peekable(),
         }
     }
 
-    fn requires_data(n: &FormatNode) -> Result<bool, ()> {
+    fn requires_data(n: &FormatNode) -> Result<bool, WriteErr> {
         use format::FormatNode::*;
         let rv = match n {
             &NewLine => false,
@@ -67,50 +82,44 @@ impl<'a> FortranIterWriter<'a> {
             &Hex(_, _) => true,
             &Real(_, _, _, _) => true,
             &Group(_) | &Repeat(_, _) => unreachable!(),
-            &RemainingChars => return Err(()),
+            &RemainingChars => return Err(WriteErr::InvalidFormat),
         };
         Ok(rv)
     }
 
-    pub fn write_constants<W>(&mut self, dst: &mut W, has_data: bool) -> Result<(), ()>
+    pub fn write_constants<W>(&mut self, dst: &mut W, has_data: bool) -> Result<(), WriteErr>
         where W: Write
     {
         use format::FormatNode::*;
         loop {
             if self.iter.peek().is_none() {
-                if !self.opts.consumed_data && has_data {
-                    return Err(());
+                if !self.consumed_data && has_data {
+                    return Err(WriteErr::DataWithoutFormat);
                 }
-                if !self.opts.has_something {
-                    return Ok(());
+                if !self.has_something {
+                    return ioerr!(dst.write_all(b"\n"));
                 }
                 // we've reached the end of the pattern, reset the iterator
                 self.iter = self.node.into_iter().peekable();
             }
 
-            let next = match self.iter.next() {
-                None => break,
-                Some(x) => {
-                    self.opts.has_something = true;
-                    if try!(Self::requires_data(x)) {
-                        self.opts.wants_data = true;
-                        break;
-                    }
-                    x
-                }
-            };
+            let next = self.iter.next().unwrap();
+            if try!(Self::requires_data(next)) {
+                self.wants_data = true;
+                break;
+            }
 
             match next {
                 &Radix(r) => { self.opts.radix = r; },
                 &Scale(p) => { self.opts.scale = p; },
                 &Literal(ref s) => {
-                    try!(dst.write_all(s.as_bytes()).map_err(|_|()));
+                    tryio!(dst.write_all(s.as_bytes()));
                 } ,
                 &NewLine => {
-                    try!(dst.write_all(b"\n").map_err(|_|()));
+                    tryio!(dst.write_all(b"\n"));
                 },
                 &SkipChar => {
-                    try!(dst.write_all(b" ").map_err(|_|()));
+                    tryio!(dst.write_all(b" "));
                 },
                 &SuppressNewLine => {
                     self.opts.suppress_newline = true;
@@ -130,30 +139,30 @@ impl<'a> FortranIterWriter<'a> {
         Ok(())
     }
 
-    pub fn write_value<W, T>(&mut self, dst: &mut W, val: &T) -> Result<(), ()>
+    pub fn write_value<W, T>(&mut self, dst: &mut W, val: &T) -> Result<(), WriteErr>
         where W: Write, T: FortranFormat
     {
-        if !self.opts.wants_data {
-            return Err(());
+        if !self.wants_data {
+            return Err(WriteErr::InvalidState);
         }
         let n = match self.iter.next() {
             Some(n) => n,
-            None => return Err(()),
+            None => return Err(WriteErr::InvalidState),
         };
-        self.opts.has_something = true;
-        self.opts.consumed_data = true;
-        self.opts.wants_data = false;
-        dst.write_all(val.f77_format(n, &self.opts).as_bytes()).map_err(|_|())
+        self.has_something = true;
+        self.consumed_data = true;
+        self.wants_data = false;
+        ioerr!(dst.write_all(val.f77_format(n, &self.opts).as_bytes()))
     }
 
-    pub fn write_ary<W, T>(&mut self, dst: &mut W, ary: &[T]) -> Result<(), ()>
+    pub fn write_ary<W, T>(&mut self, dst: &mut W, ary: &[T]) -> Result<(), WriteErr>
         where W: Write, T: FortranFormat
     {
         for val in ary.iter() {
-            if !self.opts.wants_data {
-                try!(self.write_constants(dst, true).map_err(|_|()));
+            if !self.wants_data {
+                try!(self.write_constants(dst, true));
             }
-            try!(self.write_value(dst, val).map_err(|_|()));
+            try!(self.write_value(dst, val));
         }
         Ok(())
     }
