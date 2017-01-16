@@ -22,7 +22,6 @@ pub struct FortranIterWriter<'a> {
     opts: WriterOpts,
     wants_data: bool,
     consumed_data: bool,
-    has_something: bool,
 }
 
 pub trait FortranFormat {
@@ -56,7 +55,6 @@ impl<'a> FortranIterWriter<'a> {
             },
             consumed_data: false,
             wants_data: true,
-            has_something: false,
             node: fmt,
             iter: fmt.into_iter().peekable(),
         }
@@ -94,18 +92,25 @@ impl<'a> FortranIterWriter<'a> {
         use format::FormatNode::*;
         loop {
             if self.iter.peek().is_none() {
-                if !self.consumed_data && has_data {
-                    return Err(WriteErr::DataWithoutFormat);
+                // a the end of the iterator
+                if !has_data {
+                    // with no data, print the newline, done
+                    if !self.opts.suppress_newline {
+                        return ioerr!(dst.write_all(b"\n"));
+                    }
+                } else {
+                    // if there's data present, but the format string
+                    // consumes no data, this is an error
+                    if !self.consumed_data {
+                        return Err(WriteErr::DataWithoutFormat);
+                    } else {
+                        // otherwise, we've reached the end of the pattern, reset the iterator
+                        self.iter = self.node.into_iter().peekable();
+                    }
                 }
-                if !self.has_something {
-                    return ioerr!(dst.write_all(b"\n"));
-                }
-                // we've reached the end of the pattern, reset the iterator
-                self.iter = self.node.into_iter().peekable();
             }
 
             let next = self.iter.next().unwrap();
-            self.has_something = true;
             if try!(Self::requires_data(next)) {
                 self.wants_data = true;
                 break;
@@ -151,7 +156,6 @@ impl<'a> FortranIterWriter<'a> {
             Some(n) if try!(Self::requires_data(n)) => n,
             _ => return Err(WriteErr::InvalidState),
         };
-        self.has_something = true;
         self.consumed_data = true;
         self.wants_data = false;
         ioerr!(dst.write_all(val.f77_format(n, &self.opts).as_bytes()))
