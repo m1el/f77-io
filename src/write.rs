@@ -97,6 +97,8 @@ impl<'a> FortranIterWriter<'a> {
                     // with no data, print the newline, done
                     if !self.opts.suppress_newline {
                         return ioerr!(dst.write_all(b"\n"));
+                    } else {
+                        return Ok(());
                     }
                 } else {
                     // if there's data present, but the format string
