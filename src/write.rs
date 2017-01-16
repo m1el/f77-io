@@ -105,6 +105,7 @@ impl<'a> FortranIterWriter<'a> {
             }
 
             let next = self.iter.next().unwrap();
+            self.has_something = true;
             if try!(Self::requires_data(next)) {
                 self.wants_data = true;
                 break;
