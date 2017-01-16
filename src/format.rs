@@ -160,7 +160,7 @@ impl FormatNode {
             Group(ref v) => {
                 try!(out.write_char('('));
                 let mut skip_comma = true;
-                let mut was_slash = false;
+                let mut need_comma = true;
                 let mut it = v.iter();
                 loop {
                     let node = match it.next() {
@@ -172,12 +172,12 @@ impl FormatNode {
                         skip_comma = true;
                     }
 
-                    if !skip_comma && !was_slash {
+                    if !skip_comma && need_comma {
                         try!(out.write_str(", "));
                     }
 
                     skip_comma = false;
-                    was_slash = *node == NewLine;
+                    need_comma = !(*node == NewLine || *node == Terminate);
                     try!(node.write_string(out));
                 }
 
@@ -337,7 +337,7 @@ impl<'a> FormatParser<'a> {
         }
 
         let mut was_comma = false;
-        let mut was_slash = false;
+        let mut need_comma = true;
         loop {
             self.yield_whitespace();
             let p = match self.peek() {
@@ -345,7 +345,7 @@ impl<'a> FormatParser<'a> {
                 None => break,
             };
 
-            if p != ')' && p != '/' && result.len() != 0 && !(was_comma||was_slash) {
+            if p != ')' && p != '/' && result.len() != 0 && (!was_comma && need_comma) {
                 return Err(ExpectedComma(self.pos));
             }
 
@@ -397,7 +397,7 @@ impl<'a> FormatParser<'a> {
                 None => break,
             };
 
-            was_slash = false;
+            need_comma = true;
 
             match c {
                 ')' => {
@@ -407,7 +407,7 @@ impl<'a> FormatParser<'a> {
                     return Ok(Group(result));
                 },
                 '/' => {
-                    was_slash = true;
+                    need_comma = false;
                     result.push(mk_repeating(repeat, NewLine));
                 },
                 '$' => {
@@ -420,6 +420,7 @@ impl<'a> FormatParser<'a> {
                     if repeat.is_some() {
                         return Err(RepeatingColon(self.pos));
                     }
+                    need_comma = false;
                     result.push(Terminate);
                 },
                 'X' => {
