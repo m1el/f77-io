@@ -16,7 +16,7 @@
 
 use ::std::fmt::{Write};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum RealFormat {
     F,
     E,

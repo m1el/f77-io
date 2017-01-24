@@ -4,13 +4,22 @@
 extern crate num_complex;
 use self::num_complex::Complex;
 
-#[derive(Clone, Copy)]
-pub struct Fbool2(bool);
-#[derive(Clone, Copy)]
-pub struct Fbool4(bool);
-#[derive(Clone, Copy)]
-pub struct Fbool8(bool);
+macro_rules! impl_bool {
+    ($x: ident) => {
+        #[derive(Clone, Copy)]
+        pub struct $x(bool);
+        impl From<$x> for bool {
+            fn from(x: $x) -> bool {
+                x.0
+            }
+        }
+    }
+}
+impl_bool!(Fbool2);
+impl_bool!(Fbool4);
+impl_bool!(Fbool8);
 
+#[derive(Debug)]
 pub enum FortranTag {
     Byte,
     Bool,
@@ -87,6 +96,9 @@ impl_primitive!(Byte, i8);
 impl_primitive!(Int2, i16);
 impl_primitive!(Int4, i32);
 impl_primitive!(Int8, i64);
+impl_primitive!(Uint2, u16);
+impl_primitive!(Uint4, u32);
+impl_primitive!(Uint8, u64);
 impl_primitive!(Real4, f32);
 impl_primitive!(Real8, f64);
 impl_primitive!(Strin, String);
@@ -100,6 +112,9 @@ impl_ary!(Byte, i8);
 impl_ary!(Int2, i16);
 impl_ary!(Int4, i32);
 impl_ary!(Int8, i64);
+impl_ary!(Uint2, u16);
+impl_ary!(Uint4, u32);
+impl_ary!(Uint8, u64);
 impl_ary!(Real4, f32);
 impl_ary!(Real8, f64);
 // no array of strings
