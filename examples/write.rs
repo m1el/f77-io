@@ -3,4 +3,5 @@ extern crate f77_io;
 
 fn main() {
     f77_write!(*, "(I8.3, F8.3)", 42, 123.456).unwrap();
+    f77_write!(*, "(I8.3)", vec![1u32,2,3,4]).unwrap();
 }

@@ -7,10 +7,11 @@
 //! let fmt = parse_format("('hello world'/, I16)").unwrap();
 //! assert_eq!(fmt.to_string(), "('hello world'/I16)");
 //!
+//! use f77_io::format::IntFormat;
 //! use f77_io::format::FormatNode::{Group, Literal, NewLine, Int};
 //! assert_eq!(fmt, Group(vec![
 //!     Literal("hello world".to_string()),
-//!     NewLine, Int(Some(16), None)]));
+//!     NewLine, Int(IntFormat::I, Some(16), None)]));
 //! ```
 //!
 
@@ -22,6 +23,12 @@ pub enum RealFormat {
     E,
     D,
     G,
+}
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum IntFormat {
+    I,
+    O,
+    Z,
 }
 
 impl From<char> for RealFormat {
@@ -45,6 +52,17 @@ impl<'a> Into<char> for &'a RealFormat {
             E => 'E',
             D => 'D',
             G => 'G',
+        }
+    }
+}
+
+impl<'a> Into<char> for &'a IntFormat {
+    fn into(self) -> char {
+        use self::IntFormat::*;
+        match *self {
+            I => 'I',
+            O => 'O',
+            Z => 'Z',
         }
     }
 }
@@ -80,9 +98,7 @@ pub enum FormatNode {
 
     Str(Option<usize>),
     Bool(Option<usize>),
-    Int(Option<usize>, Option<usize>),
-    Oct(Option<usize>, Option<usize>),
-    Hex(Option<usize>, Option<usize>),
+    Int(IntFormat, Option<usize>, Option<usize>),
     Real(RealFormat, Option<usize>, Option<usize>, Option<usize>),
 
     Group(Vec<FormatNode>),
@@ -127,25 +143,12 @@ impl FormatNode {
                     Some(w) => write!(out, "L{}", w),
                 }
             },
-            Int(ow, od) => {
+            Int(ref f, ow, od) => {
+                let c: char = f.into();
                 match (ow, od) {
-                    (None, _) => write!(out, "I"),
-                    (Some(w), None) => write!(out, "I{}", w),
-                    (Some(w), Some(d)) => write!(out, "I{}.{}", w, d),
-                }
-            },
-            Oct(ow, od) => {
-                match (ow, od) {
-                    (None, _) => write!(out, "O"),
-                    (Some(w), None) => write!(out, "O{}", w),
-                    (Some(w), Some(d)) => write!(out, "O{}.{}", w, d),
-                }
-            },
-            Hex(ow, od) => {
-                match (ow, od) {
-                    (None, _) => write!(out, "Z"),
-                    (Some(w), None) => write!(out, "Z{}", w),
-                    (Some(w), Some(d)) => write!(out, "Z{}.{}", w, d),
+                    (None, _) => write!(out, "{}", c),
+                    (Some(w), None) => write!(out, "{}{}", c, w),
+                    (Some(w), Some(d)) => write!(out, "{}{}.{}", c, w, d),
                 }
             },
             Real(ref f, ow, od, oe) => {
@@ -434,15 +437,15 @@ impl<'a> FormatParser<'a> {
                 },
                 'I' | 'i' => {
                     let (w, d) = try!(self.yield_int_format());
-                    result.push(mk_repeating(repeat, Int(w, d)));
+                    result.push(mk_repeating(repeat, Int(IntFormat::I, w, d)));
                 },
                 'Z' | 'z' => {
                     let (w, d) = try!(self.yield_int_format());
-                    result.push(mk_repeating(repeat, Hex(w, d)));
+                    result.push(mk_repeating(repeat, Int(IntFormat::Z, w, d)));
                 },
                 'O' | 'o' => {
                     let (w, d) = try!(self.yield_int_format());
-                    result.push(mk_repeating(repeat, Oct(w, d)));
+                    result.push(mk_repeating(repeat, Int(IntFormat::O, w, d)));
                 },
                 'L' | 'l' => {
                     self.yield_whitespace();

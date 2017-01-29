@@ -2,7 +2,7 @@
 
 // TODO: use tuples to represent complex numbers instead of using a library?
 extern crate num_complex;
-use self::num_complex::Complex;
+pub use self::num_complex::Complex;
 
 macro_rules! impl_bool {
     ($x: ident) => {
@@ -51,7 +51,7 @@ pub trait FortranAltType {
 
 pub trait FortranAryType {
     fn fortran_tag() -> FortranTag;
-    fn fortran_type(Vec<usize>) -> FortranType;
+    fn fortran_type() -> FortranType;
 }
 
 macro_rules! impl_primitive {
@@ -72,16 +72,16 @@ macro_rules! impl_primitive {
 
 macro_rules! impl_ary {
     ($tag: ident, $ty: ty) => {
-        impl FortranAryType for Vec<$ty> {
+        impl FortranAltType for Vec<$ty> {
             fn fortran_tag() -> FortranTag {
                 type T = $ty;
                 T::fortran_tag()
             }
-            fn fortran_type(dim: Vec<usize>) -> FortranType {
+            fn fortran_type() -> FortranType {
                 type T = $ty;
                 FortranType {
                     tag: T::fortran_tag(),
-                    dim: Some(dim),
+                    dim: Some(vec![]),
                 }
             }
         }
