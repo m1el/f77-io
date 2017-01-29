@@ -8,7 +8,7 @@ macro_rules! f77_write {
         let fmt = $crate::format::parse_format($src).expect("Could not parse format string");
         let out = &mut $out;
         let mut writer = $crate::write::FortranIterWriter::new(&fmt);
-        (|| -> Result<(), $crate::write::WriteErr> {
+        (move || -> Result<(), $crate::write::WriteErr> {
             $(
                 try!(writer.write_constants(out, true));
                 try!(writer.write_value(out, &$val));
