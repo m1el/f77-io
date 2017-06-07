@@ -60,7 +60,7 @@ fn main() {
     {
         let input = "1,2,3";
         let mut buffer = BufReader::new(input.as_bytes());
-        let ary = &mut [0, 0, 0];
+        let mut ary = [0, 0, 0];
         f77_read!(buffer, *, &mut ary[..])
             .expect("could not read array");
         println!("input: {:?}", input);
