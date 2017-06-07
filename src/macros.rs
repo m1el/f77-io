@@ -43,7 +43,7 @@ macro_rules! f77_write {
 #[macro_export]
 macro_rules! f77_read_star {
     ($inp: expr, $($val: expr),*) => {{
-        let mut reader = $crate::read::FortranDefaultReader::new($inp);
+        let mut reader = $crate::read::FortranDefaultReader::new(&mut $inp);
         Ok(())
         $(
             .and_then(|_| reader.read_value(&mut $val))
@@ -55,13 +55,13 @@ macro_rules! f77_read_star {
 macro_rules! f77_read {
     (*, *, $($val: expr),*) => {{
         use ::std::io::BufReader;
-        let stdin = BufReader::new(::std::io::stdin());
+        let mut stdin = BufReader::new(::std::io::stdin());
         f77_read!(stdin, *, $($val),*)
     }};
 
     (*, $inp: expr, $($val: expr),*) => {{
         use ::std::io::BufReader;
-        let stdin = BufReader::new(::std::io::stdin());
+        let mut stdin = BufReader::new(::std::io::stdin());
         f77_read!(stdin, $src, $($val),*)
     }};
 
@@ -72,7 +72,7 @@ macro_rules! f77_read {
     ($inp: expr, $src: expr, $($val: expr),*) => {{
         let fmt = $crate::format::parse_format($src).expect("Could not parse format string");
         let inp = &mut $inp;
-        let mut reader = $crate::write::FortranIterReader::new(&fmt);
+        let mut reader = $crate::write::FortranIterReader::new(&fmt, &mut $inp);
         Ok(())
         $(
             .and_then(|_| reader.read_constants(inp, true))

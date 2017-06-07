@@ -11,20 +11,20 @@ pub struct ReaderOpts {
     radix: usize,
 }
 
-pub struct FortranIterReader<'a, R: BufRead> {
+pub struct FortranIterReader<'a, R: 'a+BufRead> {
     iter: Peekable<FormatEvalIter<'a>>,
     line: String,
     line_pos: usize,
     consumed_data: bool,
-    read: Box<R>,
+    read: &'a mut R,
     node: &'a FormatNode,
     opts: ReaderOpts,
 }
 
-pub struct FortranDefaultReader<R: BufRead> {
+pub struct FortranDefaultReader<'a, R: 'a+BufRead> {
     line: String,
     line_pos: usize,
-    read: Box<R>,
+    read: &'a mut R,
 }
 
 #[derive(Debug)]
@@ -182,7 +182,7 @@ fn gives_data(n: &FormatNode) -> Result<bool, ReadErr> {
 }
 
 impl<'a, R: BufRead> FortranIterReader<'a, R> {
-    pub fn new<'f>(fmt: &'f FormatNode, read: R) -> FortranIterReader<'f, R> {
+    pub fn new<'f>(fmt: &'f FormatNode, read: &'f mut R) -> FortranIterReader<'f, R> {
         FortranIterReader {
             opts: ReaderOpts {
                 terminated: false,
@@ -192,7 +192,7 @@ impl<'a, R: BufRead> FortranIterReader<'a, R> {
             },
             line: String::new(),
             line_pos: 0,
-            read: Box::new(read),
+            read: read,
             consumed_data: false,
             node: fmt,
             iter: fmt.into_iter().peekable(),
@@ -290,10 +290,10 @@ impl<'a, R: BufRead> FortranIterReader<'a, R> {
     }
 }
 
-impl<R: BufRead> FortranDefaultReader<R> {
-    pub fn new(read: R) -> FortranDefaultReader<R> {
+impl<'a, R: BufRead> FortranDefaultReader<'a, R> {
+    pub fn new<'f>(read: &'f mut R) -> FortranDefaultReader<'f, R> {
         FortranDefaultReader {
-            read: Box::new(read),
+            read: read,
             line: String::new(),
             line_pos: 0,
         }

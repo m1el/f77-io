@@ -5,7 +5,7 @@ fn main() {
     use std::io::BufReader;
     {
         let input = "1\n";
-        let buffer = BufReader::new(input.as_bytes());
+        let mut buffer = BufReader::new(input.as_bytes());
         let mut i = 0i32;
         println!("input: {:?}", input);
         f77_read!(buffer, *, i)
@@ -15,7 +15,7 @@ fn main() {
 
     {
         let input = "1\n\n\n2";
-        let buffer = BufReader::new(input.as_bytes());
+        let mut buffer = BufReader::new(input.as_bytes());
         let mut a = 0i32;
         let mut b = 0i32;
         f77_read!(buffer, *, a, b)
@@ -26,7 +26,7 @@ fn main() {
 
     {
         let input = "1,2\n3\ntrailing";
-        let buffer = BufReader::new(input.as_bytes());
+        let mut buffer = BufReader::new(input.as_bytes());
         let mut a = 0i32;
         let mut b = 0i32;
         let mut c = 0i32;
@@ -38,7 +38,7 @@ fn main() {
 
     {
         let input = "first line to read\nsecond line to read\ntrailing input";
-        let buffer = BufReader::new(input.as_bytes());
+        let mut buffer = BufReader::new(input.as_bytes());
         let mut s1 = String::new();
         let mut s2 = String::new();
         f77_read!(buffer, *, s1, s2)
