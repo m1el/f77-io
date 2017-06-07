@@ -1,4 +1,4 @@
-//! Fortran format parser
+//! Fortran format specifier parser
 //!
 //! # Usage
 //!
@@ -11,7 +11,7 @@
 //! use f77_io::format::FormatNode::{Group, Literal, NewLine, Int};
 //! assert_eq!(fmt, Group(vec![
 //!     Literal("hello world".to_string()),
-//!     NewLine, Int(IntFormat::I, Some(16), None)]));
+//!     NewLine, Int(IntFormat::I, 16, None)]));
 //! ```
 //!
 
@@ -24,6 +24,7 @@ pub enum RealFormat {
     D,
     G,
 }
+
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum IntFormat {
     I,
@@ -98,8 +99,8 @@ pub enum FormatNode {
 
     Str(Option<usize>),
     Bool(Option<usize>),
-    Int(IntFormat, Option<usize>, Option<usize>),
-    Real(RealFormat, Option<usize>, Option<usize>, Option<usize>),
+    Int(IntFormat, usize, Option<usize>),
+    Real(RealFormat, usize, Option<usize>, Option<usize>),
 
     Group(Vec<FormatNode>),
     Repeat(usize, Box<FormatNode>),
@@ -143,21 +144,19 @@ impl FormatNode {
                     Some(w) => write!(out, "L{}", w),
                 }
             },
-            Int(ref f, ow, od) => {
+            Int(ref f, w, od) => {
                 let c: char = f.into();
-                match (ow, od) {
-                    (None, _) => write!(out, "{}", c),
-                    (Some(w), None) => write!(out, "{}{}", c, w),
-                    (Some(w), Some(d)) => write!(out, "{}{}.{}", c, w, d),
+                match (w, od) {
+                    (w, None) => write!(out, "{}{}", c, w),
+                    (w, Some(d)) => write!(out, "{}{}.{}", c, w, d),
                 }
             },
-            Real(ref f, ow, od, oe) => {
+            Real(ref f, w, od, oe) => {
                 let c: char = f.into();
-                match (ow, od, oe) {
-                    (None, _, _) => write!(out, "{}", c),
-                    (Some(w), None, _) => write!(out, "{}{}", c, w),
-                    (Some(w), Some(d), None) => write!(out, "{}{}.{}", c, w, d),
-                    (Some(w), Some(d), Some(e)) => write!(out, "{}{}.{}E{}", c, w, d, e),
+                match (w, od, oe) {
+                    (w, None, _) => write!(out, "{}{}", c, w),
+                    (w, Some(d), None) => write!(out, "{}{}.{}", c, w, d),
+                    (w, Some(d), Some(e)) => write!(out, "{}{}.{}E{}", c, w, d, e),
                 }
             },
             Group(ref v) => {
@@ -296,16 +295,17 @@ impl<'a> FormatParser<'a> {
         }
     }
 
-    fn yield_int_format(&mut self) -> Result<(Option<usize>, Option<usize>), ParseError> {
+    fn yield_int_format(&mut self) -> Result<(usize, Option<usize>), ParseError> {
         use self::ParseError::*;
 
         self.yield_whitespace();
-        let w = try!(self.yield_digits());
+        let w = self.yield_digits()
+            .and_then(|v|v.ok_or(ExpectedNumber(self.pos)))?;
         let mut d = None;
-        if w == Some(0) {
+        if w == 0 {
             return Err(ExpectedNonZero(self.pos));
         }
-        if w.is_some() && self.peek() == Some('.') {
+        if self.peek() == Some('.') {
             let _ = self.next();
             self.yield_whitespace();
             d = try!(self.yield_digits());
@@ -484,13 +484,14 @@ impl<'a> FormatParser<'a> {
                 },
                 'F' | 'f' | 'E' | 'e' | 'D' | 'd' | 'G' | 'g' => {
                     self.yield_whitespace();
-                    let w = try!(self.yield_digits());
+                    let w = self.yield_digits()
+                        .and_then(|v|v.ok_or(ExpectedNumber(self.pos)))?;
                     let mut d = None;
                     let mut e = None;
-                    if w == Some(0) {
+                    if w == 0 {
                         return Err(ExpectedNonZero(self.pos));
                     }
-                    if w.is_some() && self.peek() == Some('.') {
+                    if self.peek() == Some('.') {
                         let _ = self.next();
                         self.yield_whitespace();
                         d = try!(self.yield_digits());
