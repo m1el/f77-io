@@ -46,4 +46,24 @@ fn main() {
         println!("input: {:?}", input);
         println!("values: {:?}, {:?}\n", s1, s2);
     }
+
+    {
+        let input = "1,2,3";
+        let mut buffer = BufReader::new(input.as_bytes());
+        let mut ary = vec![0i32, 0, 0];
+        f77_read!(buffer, *, ary)
+            .expect("could not read vec");
+        println!("input: {:?}", input);
+        println!("values: {:?}\n", &ary);
+    }
+
+    {
+        let input = "1,2,3";
+        let mut buffer = BufReader::new(input.as_bytes());
+        let ary = &mut [0, 0, 0];
+        f77_read!(buffer, *, &mut ary[..])
+            .expect("could not read array");
+        println!("input: {:?}", input);
+        println!("values: {:?}", &ary);
+    }
 }

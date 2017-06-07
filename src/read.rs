@@ -141,21 +141,37 @@ impl FortranRead for String {
     }
 }
 
-//impl<'a, T: FortranRead> FortranRead for &mut'a [T] {
-//    fn fortran_read(&self, reader: &mut FortranIterReader) -> Result<(), ReadErr> {
-//    }
-//
-//    fn fortran_read_default(&self, reader: &mut FortranIterReader) -> Result<(), ReadErr> {
-//    }
-//}
-//
-//impl<T: FortranRead> FortranRead for Vec<T> {
-//    fn fortran_read(&self, reader: &mut FortranIterReader) -> Result<(), ReadErr> {
-//    }
-//
-//    fn fortran_read_default(&self, reader: &mut FortranIterReader) -> Result<(), ReadErr> {
-//    }
-//}
+impl<'a, T: FortranRead> FortranRead for &'a mut [T] {
+    fn fortran_read<R: BufRead>(&mut self, _reader: &mut FortranIterReader<R>) -> Result<bool, ReadErr> {
+        Ok(false)
+    }
+
+    fn fortran_read_default<R: BufRead>(&mut self, reader: &mut FortranDefaultReader<R>) -> Result<bool, ReadErr> {
+        let mut read = false;
+        for val in self.iter_mut() {
+            if val.fortran_read_default(reader)? {
+                read = true;
+            }
+        }
+        Ok(read)
+    }
+}
+
+impl<T: FortranRead> FortranRead for Vec<T> {
+    fn fortran_read<R: BufRead>(&mut self, _reader: &mut FortranIterReader<R>) -> Result<bool, ReadErr> {
+        Ok(false)
+    }
+
+    fn fortran_read_default<R: BufRead>(&mut self, reader: &mut FortranDefaultReader<R>) -> Result<bool, ReadErr> {
+        let mut read = false;
+        for val in self.iter_mut() {
+            if val.fortran_read_default(reader)? {
+                read = true;
+            }
+        }
+        Ok(read)
+    }
+}
 
 fn gives_data(n: &FormatNode) -> Result<bool, ReadErr> {
     use format::FormatNode::*;
